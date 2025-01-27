@@ -1,0 +1,70 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ test ]
+  pull_request:
+    branches: [ test ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      NEXT_PUBLIC_BASE_PATH: '/App_voitures_2'
+      DISABLE_ESLINT_PLUGIN: 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install -g next
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Build application
+        run: npm run build
+
+      - name: Create .nojekyll file
+        run: |
+          mkdir -Force out
+          New-Item -ItemType File -Path out/.nojekyll -Force
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 
